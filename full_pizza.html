@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Pizza: The Prize Wheel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(at 50% 100%, #1a202c 0%, #0d0d0d 100%);
+        }
+        .pizza-builder-section, .payment-section, .sales-monitor-section, .inventory-monitor-section {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .pizza-builder-section.active, .payment-section.active, .sales-monitor-section.active, .inventory-monitor-section.active {
+            display: block;
+            opacity: 1;
+        }
+        .content-card {
+            background-color: #fff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+            padding: 2rem;
+            animation: fadeIn 0.8s ease-out;
+        }
+        .order-summary, .cart-summary {
+            background-color: #fef3e6;
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+        }
+        .ingredient-card {
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid transparent;
+        }
+        .ingredient-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .ingredient-card.selected {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.4);
+        }
+        .ingredient-card .checkmark {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: #ef4444;
+            font-size: 1.5rem;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.3s ease-in, transform 0.3s ease-in;
+        }
+        .ingredient-card.selected .checkmark {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .payment-button {
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid transparent;
+        }
+        .payment-button:hover {
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .payment-button.selected {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.4);
+        }
+        .payment-button .checkmark {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: #ef4444;
+            font-size: 1.5rem;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.3s ease-in, transform 0.3s ease-in;
+        }
+        .payment-button.selected .checkmark {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        @keyframes pulse-pizza {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+        .animate-pizza {
+            display: inline-block;
+            animation: pulse-pizza 2s infinite ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .day-cell {
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .day-cell.selected, .day-cell:hover {
+            background-color: #ef4444;
+            color: white;
+            transform: scale(1.1);
+        }
+        .day-cell.today {
+            border: 2px solid #ef4444;
+            font-weight: bold;
+        }
+        #wheel-canvas {
+            border-radius: 9999px;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+        }
+        .spin-button {
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+        }
+        .spin-button:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-black min-h-screen p-4 flex flex-col">
+
+    <header class="w-full max-w-4xl mx-auto mb-6">
+        <div class="flex justify-center space-x-4 p-2 bg-gray-900 rounded-full shadow-lg">
+            <button id="nav-builder" class="px-6 py-2 rounded-full font-bold text-sm text-gray-300 hover:bg-red-600 hover:text-white transition-colors duration-300">
+                <i class="fas fa-pizza-slice mr-2"></i>Crea tu Pizza
+            </button>
+            <button id="nav-sales" class="px-6 py-2 rounded-full font-bold text-sm text-gray-300 hover:bg-red-600 hover:text-white transition-colors duration-300">
+                <i class="fas fa-chart-line mr-2"></i>Monitorear Ventas
+            </button>
+            <button id="nav-inventory" class="px-6 py-2 rounded-full font-bold text-sm text-gray-300 hover:bg-red-600 hover:text-white transition-colors duration-300">
+                <i class="fas fa-box-open mr-2"></i>Inventario
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center">
+
+        <!-- SECCIÓN DE CONSTRUCCIÓN DE LA PIZZA -->
+        <div id="builder-page" class="pizza-builder-section active w-full">
+            <div class="text-center mb-10">
+                <h1 class="text-4xl lg:text-5xl font-extrabold text-red-600 mb-2">¡Crea tu <span class="text-yellow-500">Full Pizza</span>! <span class="animate-pizza">🍕</span></h1>
+                <p class="text-lg text-gray-400">Selecciona tu base, cuatro ingredientes y los extras que quieras.</p>
+            </div>
+            <div class="grid lg:grid-cols-2 gap-8">
+                <div class="content-card">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Arma tu Pizza Perfecta</h2>
+                    <!-- Seleccion de Ingredientes -->
+                    <div class="mb-8">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                            Ingredientes (Hasta 4, gratis)
+                            <span id="ingredient-counter" class="ml-2 px-3 py-1 bg-red-100 text-red-600 rounded-full text-sm font-bold">0/4</span>
+                        </h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Pepperoni" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Pepperoni" alt="Pepperoni" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Pepperoni</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Jamón" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Jamón" alt="Jamón" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Jamón</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Champiñones" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Champiñones" alt="Champiñones" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Champiñones</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Cebolla" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Cebolla" alt="Cebolla" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Cebolla</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Pimentón" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Pimentón" alt="Pimentón" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Pimentón</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Aceitunas" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Aceitunas" alt="Aceitunas" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Aceitunas</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Maíz" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Maíz" alt="Maíz" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Maíz</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Tocineta" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Tocineta" alt="Tocineta" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Tocineta</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Chorizo" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Chorizo" alt="Chorizo" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Chorizo</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Salchicha" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Salchicha" alt="Salchicha" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Salchicha</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Tomate en Ruedas" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Tomate" alt="Tomate en Ruedas" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Tomate en Ruedas</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Anchoas" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Anchoas" alt="Anchoas" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Anchoas</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Parmesano" data-type="ingredient">
+                                <img src="https://placehold.co/80x80/fef2f2/b91c1c?text=Parmesano" alt="Parmesano" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Parmesano</span>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Seleccion de Extras -->
+                    <div class="mb-8">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4">Extras (+$0.50 cada uno)</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Pepperoni" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Pepperoni" alt="Extra Pepperoni" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Pepperoni</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Jamón" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Jamón" alt="Extra Jamón" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Jamón</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Champiñones" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Champiñones" alt="Extra Champiñones" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Champiñones</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Cebolla" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Cebolla" alt="Extra Cebolla" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Cebolla</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Pimentón" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Pimentón" alt="Extra Pimentón" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Pimentón</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Aceitunas" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Aceitunas" alt="Extra Aceitunas" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Aceitunas</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Maíz" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Maíz" alt="Extra Maíz" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Maíz</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Tocineta" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Tocineta" alt="Extra Tocineta" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Tocineta</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Chorizo" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Chorizo" alt="Extra Chorizo" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Chorizo</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Salchicha" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Salchicha" alt="Extra Salchicha" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Salchicha</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Tomate en Ruedas" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Tomate" alt="Extra Tomate en Ruedas" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Tomate en Ruedas</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Anchoas" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Anchoas" alt="Extra Anchoas" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Anchoas</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Extra Parmesano" data-price="0.5" data-type="extra">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=Parmesano" alt="Extra Parmesano" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Extra Parmesano</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$0.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Seleccion de Bebidas -->
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4">Bebidas</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Refresco 1L" data-price="1.5" data-type="drink">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=1L" alt="Refresco 1L" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Refresco 1L</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$1.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Refresco 1.5L" data-price="2.0" data-type="drink">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=1.5L" alt="Refresco 1.5L" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Refresco 1.5L</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$2.00</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                            <div class="ingredient-card bg-gray-50 rounded-xl p-4 text-center border-2 border-transparent" data-name="Refresco 2L" data-price="2.5" data-type="drink">
+                                <img src="https://placehold.co/80x80/ffe592/b45309?text=2L" alt="Refresco 2L" class="w-20 h-20 mx-auto mb-2 rounded-full">
+                                <span class="text-sm font-medium text-gray-800">Refresco 2L</span>
+                                <p class="text-xs text-green-600 font-bold mt-1">+$2.50</p>
+                                <i class="fas fa-check-circle checkmark"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-gray-300">
+                        <div class="flex justify-between items-center text-xl font-bold text-gray-800 mb-2">
+                            <span>Subtotal de Pizza:</span>
+                            <span id="current-pizza-price">$3.50</span>
+                        </div>
+                        <button id="add-to-cart-button" class="w-full mt-6 py-3 px-6 bg-red-600 text-white font-bold text-lg rounded-full shadow-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105">
+                            <i class="fas fa-shopping-cart mr-2"></i>Agregar a la Orden
+                        </button>
+                    </div>
+                </div>
+                <!-- RESUMEN DEL PEDIDO COMPLETO (CARRITO) -->
+                <div class="cart-summary flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Resumen del Pedido</h2>
+                        <div id="cart-list" class="space-y-6">
+                            <p class="text-gray-500 text-center">Tu carrito está vacío. Agrega una pizza.</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 pt-6 border-t border-gray-300">
+                        <div class="flex justify-between items-center text-xl font-bold text-gray-800 mb-2">
+                            <span>Total:</span>
+                            <span id="cart-total">$0.00</span>
+                        </div>
+                        <button id="checkout-button" class="w-full mt-6 py-3 px-6 bg-green-600 text-white font-bold text-lg rounded-full shadow-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105">
+                            <i class="fas fa-cash-register mr-2"></i>Finalizar Pedido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN DE PAGOS (Inicialmente oculta) -->
+        <div id="payment-page" class="payment-section w-full">
+            <div class="content-card max-w-lg mx-auto text-center">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">Selecciona tu Método de Pago</h2>
+                <div id="payment-summary" class="bg-gray-100 rounded-lg p-4 mb-6 text-left">
+                    <p class="text-gray-700 font-semibold text-lg">Total a Pagar: <span id="final-total" class="text-red-600 text-2xl font-extrabold ml-2"></span></p>
+                    <p class="text-gray-700 font-semibold text-lg">Equivalente en Bs. (Tasa <span id="current-rate-display">157</span>): <span id="final-total-bs" class="text-green-600 text-2xl font-extrabold ml-2"></span></p>
+                </div>
+                <div class="space-y-4">
+                    <button id="cash-payment-btn" class="payment-button w-full py-4 bg-gray-800 text-white font-bold rounded-xl shadow-md hover:bg-gray-900 transition-colors transform hover:scale-105" data-payment-method="Efectivo">
+                        <i class="fas fa-money-bill-wave mr-2"></i>Pagar con Efectivo
+                        <i class="fas fa-check-circle checkmark"></i>
+                    </button>
+                    <button id="pos-payment-btn" class="payment-button w-full py-4 bg-gray-800 text-white font-bold rounded-xl shadow-md hover:bg-gray-900 transition-colors transform hover:scale-105" data-payment-method="Punto de Venta">
+                        <i class="fas fa-credit-card mr-2"></i>Pagar con Punto de Venta
+                        <i class="fas fa-check-circle checkmark"></i>
+                    </button>
+                    <button id="mobile-payment-btn" class="payment-button w-full py-4 bg-gray-800 text-white font-bold rounded-xl shadow-md hover:bg-gray-900 transition-colors transform hover:scale-105" data-payment-method="Pago Móvil">
+                        <i class="fas fa-mobile-alt mr-2"></i>Pagar con Pago Móvil
+                        <i class="fas fa-check-circle checkmark"></i>
+                    </button>
+                </div>
+                <button id="pay-at-counter-button" class="w-full mt-8 py-3 px-6 bg-green-600 text-white font-bold text-lg rounded-full shadow-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105">
+                    Pagar en Caja
+                </button>
+                <button id="back-to-builder-from-payment" class="mt-4 text-gray-500 hover:text-gray-800 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Regresar
+                </button>
+            </div>
+        </div>
+
+        <!-- SECCIÓN DE MONITOREO DE VENTAS (Inicialmente oculta) -->
+        <div id="sales-page" class="sales-monitor-section w-full">
+             <div class="text-center mb-6">
+                <h1 class="text-4xl lg:text-5xl font-extrabold text-white mb-2">Monitoreo de <span class="text-yellow-500">Ventas</span> <i class="fas fa-chart-line text-green-500"></i></h1>
+                <p class="text-lg text-gray-400">Órdenes recientes en tiempo real.</p>
+                <p class="text-sm text-gray-500 mt-2">ID de Usuario: <span id="user-id-display" class="font-mono"></span></p>
+            </div>
+            <div class="content-card max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Órdenes Recientes</h2>
+                    <button id="change-rate-button" class="px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded-full shadow-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-dollar-sign mr-2"></i>Cambiar Tasa ($)
+                    </button>
+                </div>
+                <div id="sales-list" class="space-y-4">
+                    <p class="text-center text-gray-500">Cargando ventas...</p>
+                </div>
+                <!-- Nuevo contenedor para el resumen de pagos y el total diario -->
+                <div id="payment-totals-summary" class="mt-8 pt-6 border-t border-gray-300">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Resumen de Pagos</h3>
+                    <div id="payment-totals-list" class="space-y-2">
+                        <!-- Totales por método se renderizarán aquí -->
+                    </div>
+                    <div class="flex justify-between items-center text-lg font-bold text-gray-800 mt-4 pt-4 border-t border-gray-300">
+                        <span>Total de Ventas Diarias:</span>
+                        <span id="daily-total-sales" class="text-red-600">$0.00</span>
+                    </div>
+                </div>
+                <button id="back-to-builder-from-sales" class="mt-8 text-gray-500 hover:text-gray-800 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Regresar
+                </button>
+            </div>
+        </div>
+        
+        <!-- SECCIÓN DE MONITOREO DE INVENTARIO (Nueva) -->
+        <div id="inventory-page" class="inventory-monitor-section w-full">
+            <div class="text-center mb-6">
+                <h1 class="text-4xl lg:text-5xl font-extrabold text-white mb-2">Monitoreo de <span class="text-yellow-500">Inventario</span> <i class="fas fa-box-open text-blue-500"></i></h1>
+                <p class="text-lg text-gray-400">Stock disponible y salidas diarias.</p>
+                <p class="text-sm text-gray-500 mt-2">ID de Usuario: <span id="user-id-inventory-display" class="font-mono"></span></p>
+            </div>
+            <div class="content-card max-w-4xl mx-auto">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Stock Diario Disponible</h2>
+                <div id="inventory-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                    <!-- El stock se renderiza aquí -->
+                </div>
+                
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Historial de Salidas</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <button id="prev-month-btn" class="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h3 id="calendar-month-year" class="text-lg font-semibold text-gray-800"></h3>
+                    <button id="next-month-btn" class="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-7 gap-2 text-center text-sm font-bold text-gray-600 mb-2">
+                    <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-2 text-center">
+                    <!-- El calendario se renderiza aquí -->
+                </div>
+                
+                <div id="daily-sales-report" class="mt-8 pt-6 border-t border-gray-300">
+                    <h3 id="report-title" class="text-xl font-bold text-gray-800 mb-4">Salidas del Día:</h3>
+                    <ul id="daily-sales-list" class="list-disc list-inside space-y-2 text-gray-700">
+                        <p class="text-center text-gray-500">Selecciona un día en el calendario.</p>
+                    </ul>
+                </div>
+                <button id="back-to-builder-from-inventory" class="mt-8 text-gray-500 hover:text-gray-800 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Regresar
+                </button>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Modal para mensajes genéricos -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+        <p id="modal-message" class="text-gray-800 font-semibold mb-4"></p>
+        <button id="modal-close-button" class="w-full py-2 px-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Cerrar</button>
+      </div>
+    </div>
+
+    <!-- Modal para los datos de Pago Móvil -->
+    <div id="pago-movil-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-left">
+        <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">Datos para Pago Móvil</h3>
+        <p class="text-gray-700 font-semibold mb-2">Por favor, realiza la transferencia con los siguientes datos:</p>
+        <div class="bg-gray-100 p-4 rounded-lg space-y-2 mb-4">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600 font-medium">Teléfono:</span>
+                <span class="font-bold text-gray-800">0414-0000000</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600 font-medium">C.I.:</span>
+                <span class="font-bold text-gray-800">V-12.345.678</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600 font-medium">Banco:</span>
+                <span class="font-bold text-gray-800">Banco Mercantil</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600 font-medium">Monto:</span>
+                <span id="mobile-payment-amount-bs" class="font-bold text-green-600 text-lg"></span>
+            </div>
+        </div>
+        <p class="text-sm text-gray-500 text-center mb-4">Una vez realizada la transferencia, haz clic en continuar.</p>
+        <button id="continue-mobile-payment-button" class="w-full py-3 px-6 bg-green-600 text-white font-bold text-lg rounded-full shadow-lg hover:bg-green-700 transition-colors transform hover:scale-105">
+            Continuar
+        </button>
+        <button id="close-mobile-payment-modal" class="w-full py-2 px-4 mt-2 text-gray-500 hover:text-gray-800 transition-colors font-semibold">
+            Cerrar
+        </button>
+      </div>
+    </div>
+
+    <!-- Nuevo Modal para cambiar la tasa de cambio -->
+    <div id="rate-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-left">
+        <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">Cambiar Tasa de Cambio</h3>
+        <p class="text-gray-700 font-semibold mb-2">Ingresa la nueva tasa de cambio del dólar a Bolívares:</p>
+        <input type="number" id="new-rate-input" placeholder="Ej: 157" class="w-full p-3 mb-4 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-red-600">
+        <div class="flex justify-between space-x-4">
+            <button id="save-rate-button" class="flex-1 py-3 px-6 bg-green-600 text-white font-bold rounded-full shadow-lg hover:bg-green-700 transition-colors transform hover:scale-105">
+                Guardar
+            </button>
+            <button id="close-rate-modal" class="flex-1 py-3 px-6 bg-gray-500 text-white font-bold rounded-full shadow-lg hover:bg-gray-600 transition-colors transform hover:scale-105">
+                Cancelar
+            </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nuevo Modal para el PIN -->
+    <div id="pin-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-left">
+        <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">Ingresa el PIN</h3>
+        <p class="text-gray-700 font-semibold mb-2">Se requiere un PIN para acceder a esta función.</p>
+        <input type="password" id="pin-input" placeholder="0000" maxlength="4" class="w-full p-3 mb-4 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-red-600 text-center font-mono">
+        <div class="flex justify-between space-x-4">
+            <button id="pin-enter-button" class="flex-1 py-3 px-6 bg-green-600 text-white font-bold rounded-full shadow-lg hover:bg-green-700 transition-colors transform hover:scale-105">
+                Entrar
+            </button>
+            <button id="pin-cancel-button" class="flex-1 py-3 px-6 bg-gray-500 text-white font-bold rounded-full shadow-lg hover:bg-gray-600 transition-colors transform hover:scale-105">
+                Cancelar
+            </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nuevo Modal para la Ruleta -->
+    <div id="wheel-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full text-center relative">
+        <div class="relative inline-block">
+          <canvas id="wheel-canvas" width="400" height="400" class="rounded-full bg-gray-200"></canvas>
+          <!-- Indicador de la ruleta (un pequeño triángulo) -->
+          <div class="absolute top-0 left-1/2 -ml-2 -mt-4 w-0 h-0 border-l-[15px] border-r-[15px] border-b-[20px] border-l-transparent border-r-transparent border-b-gray-800"></div>
+        </div>
+        <h3 class="text-2xl font-bold text-gray-800 my-4" id="wheel-title">¡Gira la Ruleta!</h3>
+        <p class="text-sm text-gray-600" id="wheel-message">Haz clic en "Girar" para ver qué premio te toca.</p>
+        <div id="wheel-prize-container" class="mt-4 p-4 bg-gray-100 rounded-lg hidden">
+          <p class="text-gray-700 text-lg font-bold">¡Premio ganado!</p>
+          <p id="wheel-prize-text" class="text-2xl font-extrabold text-red-600 mt-1"></p>
+          <div class="flex justify-between items-center text-lg font-bold mt-4">
+            <span class="text-gray-700">Total Original:</span>
+            <span id="original-total" class="text-gray-500 line-through"></span>
+          </div>
+          <div class="flex justify-between items-center text-xl font-bold mt-2">
+            <span class="text-gray-800">Total con Descuento:</span>
+            <span id="discounted-total" class="text-green-600"></span>
+          </div>
+        </div>
+        <button id="spin-wheel-button" class="w-full mt-6 py-3 px-6 bg-red-600 text-white font-bold text-lg rounded-full shadow-lg hover:bg-red-700 transition-colors transform hover:scale-105">
+            Girar
+        </button>
+        <button id="finalize-order-button" class="w-full mt-4 py-3 px-6 bg-green-600 text-white font-bold text-lg rounded-full shadow-lg hover:bg-green-700 transition-colors transform hover:scale-105 hidden">
+            Finalizar Pedido
+        </button>
+      </div>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, collection, setDoc, addDoc, updateDoc, increment, serverTimestamp, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    
+    // Configuración de Firebase
+    setLogLevel('debug');
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : '';
+    
+    // UI elements
+    const pages = {
+        builder: document.getElementById('builder-page'),
+        payment: document.getElementById('payment-page'),
+        sales: document.getElementById('sales-page'),
+        inventory: document.getElementById('inventory-page')
+    };
+    const navButtons = {
+        builder: document.getElementById('nav-builder'),
+        sales: document.getElementById('nav-sales'),
+        inventory: document.getElementById('nav-inventory')
+    };
+    const ingredientCards = document.querySelectorAll('.ingredient-card');
+    const currentPizzaPriceEl = document.getElementById('current-pizza-price');
+    const ingredientCounter = document.getElementById('ingredient-counter');
+    const addToCartButton = document.getElementById('add-to-cart-button');
+    const checkoutButton = document.getElementById('checkout-button');
+    const modal = document.getElementById('modal');
+    const modalMessage = document.getElementById('modal-message');
+    const modalCloseButton = document.getElementById('modal-close-button');
+    const finalTotalEl = document.getElementById('final-total');
+    const finalTotalBsEl = document.getElementById('final-total-bs');
+    const currentRateDisplay = document.getElementById('current-rate-display');
+    const paymentButtons = document.querySelectorAll('.payment-button');
+    const payAtCounterButton = document.getElementById('pay-at-counter-button');
+    const salesList = document.getElementById('sales-list');
+    const paymentTotalsList = document.getElementById('payment-totals-list');
+    const dailyTotalSalesEl = document.getElementById('daily-total-sales');
+    const userIdDisplay = document.getElementById('user-id-display');
+    const userIdInventoryDisplay = document.getElementById('user-id-inventory-display');
+    const backToBuilderFromPaymentButton = document.getElementById('back-to-builder-from-payment');
+    const backToBuilderFromSalesButton = document.getElementById('back-to-builder-from-sales');
+    const backToBuilderFromInventoryButton = document.getElementById('back-to-builder-from-inventory');
+    const cartListEl = document.getElementById('cart-list');
+    const cartTotalEl = document.getElementById('cart-total');
+    
+    // Elementos del nuevo modal de Pago Móvil
+    const pagoMovilModal = document.getElementById('pago-movil-modal');
+    const mobilePaymentAmountBs = document.getElementById('mobile-payment-amount-bs');
+    const continueMobilePaymentButton = document.getElementById('continue-mobile-payment-button');
+    const closeMobilePaymentModalButton = document.getElementById('close-mobile-payment-modal');
+
+    // Elementos del nuevo modal de Tasa de Cambio
+    const changeRateButton = document.getElementById('change-rate-button');
+    const rateModal = document.getElementById('rate-modal');
+    const newRateInput = document.getElementById('new-rate-input');
+    const saveRateButton = document.getElementById('save-rate-button');
+    const closeRateModalButton = document.getElementById('close-rate-modal');
+
+    // Elementos del nuevo modal de PIN
+    const pinModal = document.getElementById('pin-modal');
+    const pinInput = document.getElementById('pin-input');
+    const pinEnterButton = document.getElementById('pin-enter-button');
+    const pinCancelButton = document.getElementById('pin-cancel-button');
+
+    // Elementos de la nueva página de Inventario
+    const inventoryListEl = document.getElementById('inventory-list');
+    const calendarMonthYear = document.getElementById('calendar-month-year');
+    const calendarGrid = document.getElementById('calendar-grid');
+    const prevMonthBtn = document.getElementById('prev-month-btn');
+    const nextMonthBtn = document.getElementById('next-month-btn');
+    const dailySalesList = document.getElementById('daily-sales-list');
+    const reportTitle = document.getElementById('report-title');
+
+    // Elementos del modal de la Ruleta
+    const wheelModal = document.getElementById('wheel-modal');
+    const wheelCanvas = document.getElementById('wheel-canvas');
+    const spinWheelButton = document.getElementById('spin-wheel-button');
+    const finalizeOrderButton = document.getElementById('finalize-order-button');
+    const wheelPrizeContainer = document.getElementById('wheel-prize-container');
+    const wheelPrizeText = document.getElementById('wheel-prize-text');
+    const originalTotalEl = document.getElementById('original-total');
+    const discountedTotalEl = document.getElementById('discounted-total');
+    const wheelTitle = document.getElementById('wheel-title');
+    const wheelMessage = document.getElementById('wheel-message');
+
+    // Precios y datos
+    const basePrice = 3.50;
+    let exchangeRate = 157; 
+    const initialDailyStock = 50;
+    const ACCESS_PIN = "3003";
+    let finalOrderTotal = 0;
+
+    let selectedIngredients = [];
+    let selectedExtras = [];
+    let selectedDrinks = [];
+    let pizzasInCart = [];
+    let currentInventory = {};
+    let selectedPaymentMethod = null;
+    let userId = null;
+    let db;
+    
+    // Variables para el calendario
+    let currentCalendarDate = new Date();
+
+    // Configuración de la ruleta
+    const prizes = [
+        { text: "20% DESC.", fill: "#ef4444", prize: "20%" },
+        { text: "REFRESCO GRATIS", fill: "#f59e0b", prize: "free_drink" },
+        { text: "SIGA PARTICIPANDO", fill: "#6b7280", prize: "try_again" },
+        { text: "10% DESC.", fill: "#10b981", prize: "10%" },
+        { text: "PIZZA GRATIS", fill: "#0ea5e9", prize: "free_pizza" }
+    ];
+    // Ajustar el peso de los premios
+    const prizeWeights = [2, 2, 2, 2, 1]; // 1 para pizza gratis
+    const totalWeight = prizeWeights.reduce((a, b) => a + b, 0);
+    const prizeAngles = prizeWeights.map(w => w / totalWeight * 360);
+    let startAngle = 0;
+
+    // Show only the requested page
+    function showPage(pageName) {
+        for (const page in pages) {
+            pages[page].classList.remove('active');
+        }
+        pages[pageName].classList.add('active');
+        
+        if (pageName === 'payment') {
+            updatePaymentSummary();
+        }
+    }
+
+    // Initialize Firebase
+    async function initializeFirebase() {
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            db = getFirestore(app);
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
+            userId = auth.currentUser.uid;
+            userIdDisplay.textContent = userId;
+            userIdInventoryDisplay.textContent = userId;
+            console.log("Firebase inicializado y autenticado con éxito.");
+            await checkAndResetInventory();
+            setupListeners();
+            renderCalendar();
+            drawWheel(); // Dibuja la ruleta al inicio
+            showPage('builder');
+        } catch (error) {
+            console.error("Fallo en la inicialización de Firebase:", error);
+        }
+    }
+
+    // Displays a modal with a message
+    function showModal(message) {
+        modalMessage.textContent = message;
+        modal.classList.remove('hidden');
+    }
+
+    // Closes the modal
+    modalCloseButton.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    
+    // --- LÓGICA PARA EL MODAL DE PIN Y TASA DE CAMBIO ---
+    changeRateButton.addEventListener('click', () => {
+        pinInput.value = '';
+        pinModal.classList.remove('hidden');
+        pinInput.focus();
+    });
+
+    pinEnterButton.addEventListener('click', () => {
+        if (pinInput.value === ACCESS_PIN) {
+            pinModal.classList.add('hidden');
+            newRateInput.value = exchangeRate;
+            rateModal.classList.remove('hidden');
+            newRateInput.focus();
+        } else {
+            showModal("PIN incorrecto. Por favor, inténtelo de nuevo.");
+            pinInput.value = '';
+        }
+    });
+
+    pinCancelButton.addEventListener('click', () => {
+        pinModal.classList.add('hidden');
+    });
+
+    closeRateModalButton.addEventListener('click', () => {
+        rateModal.classList.add('hidden');
+    });
+
+    saveRateButton.addEventListener('click', () => {
+        const newRate = parseFloat(newRateInput.value);
+        if (isNaN(newRate) || newRate <= 0) {
+            showModal("Por favor, ingresa una tasa de cambio válida.");
+            return;
+        }
+        exchangeRate = newRate;
+        currentRateDisplay.textContent = exchangeRate;
+        rateModal.classList.add('hidden');
+        updateCurrentPizzaSummary();
+        updateCartDisplay();
+        renderPaymentTotals();
+        showModal(`La tasa de cambio se ha actualizado a ${exchangeRate} Bs.`);
+    });
+    // --- FIN LÓGICA PARA EL MODAL DE PIN Y TASA DE CAMBIO ---
+
+    // Check and reset inventory daily
+    async function checkAndResetInventory() {
+        const resetRef = doc(db, 'artifacts', appId, 'users', userId, 'user-data', 'inventory-reset');
+        const resetDoc = await getDoc(resetRef);
+        
+        const today = new Date().toDateString();
+        
+        if (resetDoc.exists() && resetDoc.data().lastResetDate === today) {
+            console.log("El inventario ya fue reiniciado hoy. No se requiere acción.");
+            return;
+        }
+
+        console.log("Reiniciando el inventario para el día de hoy.");
+        const initialInventory = {};
+        document.querySelectorAll('.ingredient-card[data-type="ingredient"]').forEach(item => {
+            initialInventory[item.dataset.name] = initialDailyStock;
+        });
+
+        const inventoryRef = doc(db, 'artifacts', appId, 'users', userId, 'user-data', 'inventory');
+        await setDoc(inventoryRef, initialInventory, { merge: true });
+        await setDoc(resetRef, { lastResetDate: today });
+    }
+
+    // Sets up real-time listeners for inventory and sales
+    function setupListeners() {
+        // Listener para el inventario (privado)
+        const inventoryRef = doc(db, 'artifacts', appId, 'users', userId, 'user-data', 'inventory');
+        onSnapshot(inventoryRef, (docSnap) => {
+            if (docSnap.exists()) {
+                currentInventory = docSnap.data();
+                updateInventoryDisplay();
+                updateBuilderInventoryDisplay();
+                console.log("Inventario actualizado en tiempo real.");
+            } else {
+                console.log("Inventario no encontrado, inicializando...");
+                checkAndResetInventory();
+            }
+        });
+
+        // Listener para las ventas (público)
+        const salesRef = collection(db, 'artifacts', appId, 'public', 'data', 'sales');
+        onSnapshot(salesRef, (snapshot) => {
+            salesList.innerHTML = '';
+            
+            if (snapshot.empty) {
+                salesList.innerHTML = `<p class="text-center text-gray-500">No hay ventas registradas aún.</p>`;
+                dailyTotalSalesEl.textContent = `$0.00`;
+                paymentTotalsList.innerHTML = '';
+                return;
+            }
+            
+            const sales = [];
+            snapshot.forEach(doc => {
+                const orderData = doc.data();
+                sales.push({ id: doc.id, ...orderData });
+            });
+
+            // Ordenar por timestamp
+            sales.sort((a, b) => {
+                if (!a.timestamp || !b.timestamp || !a.timestamp.toDate || !b.timestamp.toDate) {
+                    return 0;
+                }
+                return b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime();
+            });
+            
+            let dailyTotalSales = 0;
+            let paymentTotals = { 'Efectivo': 0, 'Punto de Venta': 0, 'Pago Móvil': 0 };
+
+            sales.forEach(order => {
+                const orderData = order;
+                const totalAmount = orderData.total || 0;
+                const method = orderData.paymentMethod;
+                
+                // Sumar al total diario
+                dailyTotalSales += totalAmount;
+                
+                // Sumar al total por método de pago
+                if (paymentTotals.hasOwnProperty(method)) {
+                    paymentTotals[method] += totalAmount;
+                }
+
+                const orderEl = document.createElement('div');
+                orderEl.classList.add('bg-gray-100', 'p-4', 'rounded-lg', 'shadow-sm', 'relative');
+                
+                let pizzasHtml = '';
+                order.pizzas.forEach((pizza, index) => {
+                    const ingredients = pizza.ingredients.map(i => i.name).join(', ');
+                    const extras = pizza.extras.length > 0 ? `<p class="text-gray-600">Extras: ${pizza.extras.map(e => e.name).join(', ')}</p>` : '';
+                    const drinks = pizza.drinks.length > 0 ? `<p class="text-gray-600">Bebidas: ${pizza.drinks.map(d => d.name).join(', ')}</p>` : '';
+                    pizzasHtml += `
+                        <div class="mt-2 border-t border-gray-300 pt-2">
+                            <p class="font-bold text-gray-800">Pizza ${index + 1}:</p>
+                            <p class="text-gray-600">Ingredientes: ${ingredients}</p>
+                            ${extras}
+                            ${drinks}
+                            <p class="text-gray-600 font-semibold">Precio: $${pizza.price.toFixed(2)}</p>
+                        </div>
+                    `;
+                });
+
+                const formattedDate = order.timestamp && order.timestamp.toDate ? order.timestamp.toDate().toLocaleString() : 'Fecha no disponible';
+
+                orderEl.innerHTML = `
+                    <p class="text-sm text-gray-500">ID de Usuario: <span class="font-mono text-gray-800">${order.userId}</span></p>
+                    <p class="font-bold text-gray-800 text-lg">Total del Pedido: $${order.total.toFixed(2)}</p>
+                    ${pizzasHtml}
+                    <p class="text-gray-600 font-semibold mt-2">Método de pago: <span class="text-green-600">${order.paymentMethod}</span></p>
+                    <p class="text-xs text-gray-400 mt-2">Fecha: ${formattedDate}</p>
+                `;
+
+                // Add button for payment confirmation if not confirmed
+                if (!order.paymentConfirmed) {
+                    const confirmBtn = document.createElement('button');
+                    confirmBtn.textContent = 'Confirmar Pago';
+                    confirmBtn.classList.add(
+                        'mt-4', 'px-4', 'py-2', 'bg-green-600', 'text-white', 'font-semibold',
+                        'rounded-lg', 'hover:bg-green-700', 'transition-colors', 'w-full'
+                    );
+                    confirmBtn.addEventListener('click', async () => {
+                        try {
+                            const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'sales', order.id);
+                            await updateDoc(orderRef, { paymentConfirmed: true });
+                            showModal('¡Pago confirmado con éxito!');
+                        } catch (e) {
+                            console.error("Error al confirmar el pago: ", e);
+                            showModal("Error al confirmar el pago. Por favor, inténtelo de nuevo.");
+                        }
+                    });
+                    orderEl.appendChild(confirmBtn);
+                } else {
+                    const confirmedStatus = document.createElement('p');
+                    confirmedStatus.textContent = 'Pago Confirmado';
+                    confirmedStatus.classList.add('mt-4', 'text-center', 'font-bold', 'text-green-600');
+                    orderEl.appendChild(confirmedStatus);
+                }
+
+                salesList.appendChild(orderEl);
+            });
+            console.log("Ventas actualizadas en tiempo real.");
+
+            // Actualiza el total de ventas diarias
+            dailyTotalSalesEl.textContent = `$${dailyTotalSales.toFixed(2)}`;
+
+            // Renderizar el resumen de pagos
+            renderPaymentTotals(paymentTotals);
+        });
+    }
+
+    // Function to render the payment totals summary
+    function renderPaymentTotals(paymentTotals) {
+        paymentTotalsList.innerHTML = '';
+        for (const method in paymentTotals) {
+            const totalUSD = paymentTotals[method];
+            const totalBS = totalUSD * exchangeRate;
+            const totalEl = document.createElement('div');
+            totalEl.classList.add('flex', 'justify-between', 'items-center', 'text-gray-700');
+            totalEl.innerHTML = `
+                <span class="font-semibold">${method}:</span>
+                <span><span class="font-bold text-red-600">$${totalUSD.toFixed(2)}</span> / <span class="font-bold text-green-600">${totalBS.toFixed(2)} Bs.</span></span>
+            `;
+            paymentTotalsList.appendChild(totalEl);
+        }
+    }
+
+    // Updates the inventory display on the UI for the inventory page
+    function updateInventoryDisplay() {
+        inventoryListEl.innerHTML = '';
+        const ingredientNames = [...new Set([...document.querySelectorAll('.ingredient-card[data-type="ingredient"]')].map(el => el.dataset.name))];
+        ingredientNames.forEach(name => {
+            const stock = currentInventory[name] !== undefined ? currentInventory[name] : initialDailyStock;
+            const itemEl = document.createElement('div');
+            itemEl.classList.add('p-4', 'bg-gray-100', 'rounded-lg', 'text-center', 'shadow-sm');
+            itemEl.innerHTML = `
+                <h4 class="font-bold text-gray-800">${name}</h4>
+                <p class="text-xl font-extrabold mt-1 ${stock > 10 ? 'text-green-600' : 'text-red-600'}">${stock}</p>
+                <p class="text-xs text-gray-500">unidades disponibles</p>
+            `;
+            inventoryListEl.appendChild(itemEl);
+        });
+    }
+
+    // Updates the inventory display on the UI for the builder page
+    function updateBuilderInventoryDisplay() {
+      document.querySelectorAll('.ingredient-card[data-type="ingredient"]').forEach(card => {
+        const name = card.dataset.name;
+        const stock = currentInventory[name] !== undefined ? currentInventory[name] : initialDailyStock;
+        if (stock <= 0) {
+          card.classList.add('opacity-50', 'cursor-not-allowed');
+          card.style.pointerEvents = 'none';
+        } else {
+          card.classList.remove('opacity-50', 'cursor-not-allowed');
+          card.style.pointerEvents = 'auto';
+        }
+      });
+    }
+    
+    // Calculates the price for the current pizza being built
+    function calculateCurrentPizzaPrice() {
+        let price = basePrice;
+        selectedExtras.forEach(item => price += item.price);
+        selectedDrinks.forEach(item => price += item.price);
+        return price;
+    }
+
+    // Updates the summary for the current pizza being built
+    function updateCurrentPizzaSummary() {
+        const currentPizzaPrice = calculateCurrentPizzaPrice();
+        currentPizzaPriceEl.textContent = `$${currentPizzaPrice.toFixed(2)}`;
+        ingredientCounter.textContent = `${selectedIngredients.length}/4`;
+        // Habilitar el botón si hay 0 a 4 ingredientes seleccionados
+        addToCartButton.disabled = selectedIngredients.length > 4 || selectedIngredients.length === 0;
+    }
+
+    // Updates the entire cart summary
+    function updateCartDisplay() {
+        cartListEl.innerHTML = '';
+        let total = 0;
+        
+        if (pizzasInCart.length === 0) {
+            cartListEl.innerHTML = `<p class="text-gray-500 text-center">Tu carrito está vacío. Agrega una pizza.</p>`;
+        } else {
+            pizzasInCart.forEach((pizza, index) => {
+                let pizzaHtml = `
+                    <div class="pizza-in-cart bg-white rounded-lg p-4 shadow-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-bold text-gray-800">Pizza #${index + 1}</h4>
+                            <button onclick="removePizzaFromCart(${index})" class="text-red-500 hover:text-red-700 transition-colors">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        <ul class="text-sm text-gray-600 list-disc list-inside space-y-1">
+                            <li>Base: $${basePrice.toFixed(2)}</li>
+                `;
+                pizza.ingredients.forEach(item => {
+                    pizzaHtml += `<li>Ingrediente: ${item.name}</li>`;
+                });
+                pizza.extras.forEach(item => {
+                    pizzaHtml += `<li>Extra: ${item.name} (+$${item.price.toFixed(2)})</li>`;
+                });
+                pizza.drinks.forEach(item => {
+                    pizzaHtml += `<li>Bebida: ${item.name} (+$${item.price.toFixed(2)})</li>`;
+                });
+                pizzaHtml += `
+                        </ul>
+                        <div class="flex justify-end items-center mt-2 font-bold text-gray-800">
+                            <span>Precio:</span>
+                            <span class="ml-2">$${pizza.price.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+                cartListEl.innerHTML += pizzaHtml;
+                total += pizza.price;
+            });
+        }
+        
+        cartTotalEl.textContent = `$${total.toFixed(2)}`;
+        checkoutButton.disabled = pizzasInCart.length === 0;
+    }
+    
+    // Remove pizza from cart
+    window.removePizzaFromCart = (index) => {
+        pizzasInCart.splice(index, 1);
+        updateCartDisplay();
+    };
+
+    // Updates the payment summary on the payment page
+    function updatePaymentSummary() {
+        const total = pizzasInCart.reduce((sum, pizza) => sum + pizza.price, 0);
+        const totalBs = total * exchangeRate;
+        finalTotalEl.textContent = `$${total.toFixed(2)}`;
+        finalTotalBsEl.textContent = `${totalBs.toFixed(2)} Bs.`;
+    }
+
+    // Handles the selection of ingredients and extras
+    ingredientCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const name = card.dataset.name;
+            const price = parseFloat(card.dataset.price) || 0;
+            const type = card.dataset.type;
+
+            if (type === 'ingredient') {
+                const index = selectedIngredients.findIndex(item => item.name === name);
+                if (index === -1) {
+                    if (selectedIngredients.length < 4) {
+                        selectedIngredients.push({ name: name });
+                        card.classList.add('selected');
+                    } else {
+                        showModal("No puedes seleccionar más de 4 ingredientes principales.");
+                    }
+                } else {
+                    selectedIngredients.splice(index, 1);
+                    card.classList.remove('selected');
+                }
+            } else if (type === 'extra') {
+                const index = selectedExtras.findIndex(item => item.name === name);
+                if (index === -1) {
+                    selectedExtras.push({ name: name, price: price });
+                    card.classList.add('selected');
+                } else {
+                    selectedExtras.splice(index, 1);
+                    card.classList.remove('selected');
+                }
+            } else if (type === 'drink') {
+                 const index = selectedDrinks.findIndex(item => item.name === name);
+                if (index === -1) {
+                    selectedDrinks.push({ name: name, price: price });
+                    card.classList.add('selected');
+                } else {
+                    selectedDrinks.splice(index, 1);
+                    card.classList.remove('selected');
+                }
+            }
+            updateCurrentPizzaSummary();
+        });
+    });
+
+    // Handles payment method selection
+    paymentButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            paymentButtons.forEach(btn => btn.classList.remove('selected'));
+            button.classList.add('selected');
+            selectedPaymentMethod = button.dataset.paymentMethod;
+            payAtCounterButton.disabled = false;
+        });
+    });
+
+    // Event listener for the "Agregar a la Orden" button
+    addToCartButton.addEventListener('click', () => {
+        if (selectedIngredients.length > 4) {
+            showModal("Por favor, selecciona como máximo 4 ingredientes.");
+            return;
+        }
+
+        const outOfStockItems = selectedIngredients.filter(item => (currentInventory[item.name] || 0) <= 0);
+        if (outOfStockItems.length > 0) {
+            const outOfStockNames = outOfStockItems.map(item => item.name).join(', ');
+            showModal(`Lo sentimos, los siguientes ingredientes están agotados: ${outOfStockNames}.`);
+            return;
+        }
+
+        const currentPizzaPrice = calculateCurrentPizzaPrice();
+        pizzasInCart.push({
+            price: currentPizzaPrice,
+            ingredients: [...selectedIngredients],
+            extras: [...selectedExtras],
+            drinks: [...selectedDrinks],
+        });
+
+        // Reset selections for the next pizza
+        selectedIngredients = [];
+        selectedExtras = [];
+        selectedDrinks = [];
+        ingredientCards.forEach(card => card.classList.remove('selected'));
+        
+        updateCurrentPizzaSummary();
+        updateCartDisplay();
+        showModal('Pizza agregada al carrito. ¡Puedes seguir creando más!');
+    });
+    
+    // Event listener for the "Finalizar Pedido" button
+    checkoutButton.addEventListener('click', () => {
+        if (pizzasInCart.length > 0) {
+            showPage('payment');
+        } else {
+            showModal('Tu carrito está vacío. Agrega al menos una pizza para continuar.');
+        }
+    });
+
+    // Function to process and save the order
+    async function processOrder(total) {
+        
+        const order = {
+            userId: userId,
+            timestamp: serverTimestamp(),
+            pizzas: pizzasInCart,
+            total: total,
+            paymentMethod: selectedPaymentMethod,
+            paymentConfirmed: false
+        };
+
+        const inventoryRef = doc(db, 'artifacts', appId, 'users', userId, 'user-data', 'inventory');
+        const salesRef = collection(db, `artifacts/${appId}/public/data/sales`);
+
+        try {
+            await addDoc(salesRef, order);
+
+            const updates = {};
+            pizzasInCart.forEach(pizza => {
+                pizza.ingredients.forEach(item => {
+                    updates[item.name] = increment(-1);
+                });
+            });
+            await updateDoc(inventoryRef, updates);
+
+            showModal("¡Orden colocada con éxito! Dirígete a la caja para pagar.");
+
+            pizzasInCart = [];
+            selectedPaymentMethod = null;
+            paymentButtons.forEach(btn => btn.classList.remove('selected'));
+            updateCurrentPizzaSummary();
+            updateCartDisplay();
+            payAtCounterButton.disabled = true;
+            
+            showPage('builder');
+            pagoMovilModal.classList.add('hidden');
+        } catch (e) {
+            console.error("Error al procesar la orden: ", e);
+            showModal("Error al procesar la orden. Por favor, inténtelo de nuevo.");
+        }
+    }
+
+    // Event listener for the "Pagar en caja" button
+    payAtCounterButton.addEventListener('click', () => {
+        if (!selectedPaymentMethod) {
+            showModal("Por favor, selecciona un método de pago.");
+            return;
+        }
+
+        if (selectedPaymentMethod === 'Pago Móvil') {
+            const totalBs = parseFloat(finalTotalBsEl.textContent.replace(' Bs.', ''));
+            mobilePaymentAmountBs.textContent = `${totalBs.toFixed(2)} Bs.`;
+            pagoMovilModal.classList.remove('hidden');
+        } else {
+            // New logic: open the prize wheel modal
+            wheelModal.classList.remove('hidden');
+            spinWheelButton.classList.remove('hidden');
+            finalizeOrderButton.classList.add('hidden');
+            wheelPrizeContainer.classList.add('hidden');
+            wheelTitle.textContent = "¡Gira la Ruleta!";
+            wheelMessage.textContent = "Haz clic en 'Girar' para ver qué premio te toca.";
+        }
+    });
+
+    // Event listener para el botón "Continuar" del modal de Pago Móvil
+    continueMobilePaymentButton.addEventListener('click', () => {
+        finalOrderTotal = pizzasInCart.reduce((sum, pizza) => sum + pizza.price, 0);
+        processOrder(finalOrderTotal);
+    });
+
+    // Event listener para el botón "Cerrar" del modal de Pago Móvil
+    closeMobilePaymentModalButton.addEventListener('click', () => {
+        pagoMovilModal.classList.add('hidden');
+    });
+
+    // --- Lógica de la Ruleta ---
+    const ctx = wheelCanvas.getContext('2d');
+    const PI = Math.PI;
+
+    function drawWheel() {
+        ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
+        const centerX = wheelCanvas.width / 2;
+        const centerY = wheelCanvas.height / 2;
+        const radius = Math.min(centerX, centerY) - 10;
+        
+        let currentAngle = startAngle;
+        
+        prizes.forEach((prize, index) => {
+            const angle = prizeAngles[index] * (PI / 180);
+            
+            // Dibujar el segmento
+            ctx.beginPath();
+            ctx.fillStyle = prize.fill;
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + angle);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Dibujar el texto
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(currentAngle + angle / 2);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = "#fff";
+            ctx.font = 'bold 16px Inter';
+            ctx.fillText(prize.text, radius - 15, 5);
+            ctx.restore();
+            
+            currentAngle += angle;
+        });
+    }
+
+    function spinWheel() {
+        spinWheelButton.disabled = true;
+        let speed = 0;
+        let maxSpeed = Math.random() * 0.2 + 0.1;
+        const deceleration = 0.0005;
+        let totalRotation = 0;
+        
+        const animationFrame = () => {
+            speed += deceleration;
+            if (speed > maxSpeed) {
+                speed = maxSpeed;
+            }
+            startAngle += speed;
+            totalRotation += speed;
+            drawWheel();
+
+            if (speed > 0) {
+                requestAnimationFrame(animationFrame);
+            } else {
+                spinWheelButton.disabled = false;
+                onWheelStop();
+            }
+        };
+
+        const stopAfterTurns = 5;
+        const stoppingFrame = () => {
+            if (totalRotation > stopAfterTurns * PI * 2) {
+                speed -= deceleration;
+                if (speed < 0) {
+                    speed = 0;
+                }
+            }
+            startAngle += speed;
+            totalRotation += speed;
+            drawWheel();
+
+            if (speed > 0) {
+                requestAnimationFrame(stoppingFrame);
+            } else {
+                spinWheelButton.disabled = false;
+                onWheelStop();
+            }
+        };
+
+        requestAnimationFrame(stoppingFrame);
+    }
+    
+    function getPrize() {
+        const rotationDegrees = (startAngle * 180 / PI) % 360;
+        let currentAngle = 0;
+        let prize = prizes[0];
+
+        for (let i = 0; i < prizes.length; i++) {
+            currentAngle += prizeAngles[i];
+            if (rotationDegrees < currentAngle) {
+                prize = prizes[i];
+                break;
+            }
+        }
+        return prize;
+    }
+
+    function onWheelStop() {
+        const prize = getPrize();
+        const originalTotal = pizzasInCart.reduce((sum, pizza) => sum + pizza.price, 0);
+        let finalTotal = originalTotal;
+        let prizeMessage = '';
+
+        if (prize.prize === '20%') {
+            finalTotal = originalTotal * 0.8;
+            prizeMessage = `¡Ganaste un 20% de descuento!`;
+        } else if (prize.prize === '10%') {
+            finalTotal = originalTotal * 0.9;
+            prizeMessage = `¡Ganaste un 10% de descuento!`;
+        } else if (prize.prize === 'free_drink') {
+             // Find the first drink and make it free
+            const drinkIndex = pizzasInCart.findIndex(pizza => pizza.drinks.length > 0);
+            if(drinkIndex !== -1) {
+                const freeDrink = pizzasInCart[drinkIndex].drinks[0];
+                finalTotal -= freeDrink.price;
+                prizeMessage = `¡Ganaste un ${freeDrink.name} gratis!`;
+            } else {
+                prizeMessage = `¡Ganaste un Refresco gratis!`; // No hay bebidas para descontar, solo mensaje
+            }
+        } else if (prize.prize === 'free_pizza') {
+            if (pizzasInCart.length > 0) {
+                const pizzaToFreeIndex = pizzasInCart.findIndex(pizza => pizza.price > 0);
+                if (pizzaToFreeIndex !== -1) {
+                    finalTotal -= pizzasInCart[pizzaToFreeIndex].price;
+                    prizeMessage = `¡Ganaste una Pizza gratis!`;
+                } else {
+                    finalTotal = 0;
+                    prizeMessage = `¡Ganaste una Pizza gratis!`; // Si todas ya eran gratis
+                }
+            } else {
+                finalTotal = 0;
+                prizeMessage = `¡Ganaste una Pizza gratis!`; // No hay pizzas, pero el premio es el mismo
+            }
+        } else {
+            prizeMessage = `¡Siga Participando! Suerte para la próxima.`;
+        }
+
+        finalOrderTotal = finalTotal;
+        wheelTitle.textContent = "¡Felicidades!";
+        wheelMessage.textContent = "Has ganado:";
+        wheelPrizeText.textContent = prizeMessage;
+        originalTotalEl.textContent = `$${originalTotal.toFixed(2)}`;
+        discountedTotalEl.textContent = `$${finalTotal.toFixed(2)}`;
+        wheelPrizeContainer.classList.remove('hidden');
+        spinWheelButton.classList.add('hidden');
+        finalizeOrderButton.classList.remove('hidden');
+        
+        // Update payment summary with final total
+        const totalBs = finalTotal * exchangeRate;
+        finalTotalEl.textContent = `$${finalTotal.toFixed(2)}`;
+        finalTotalBsEl.textContent = `${totalBs.toFixed(2)} Bs.`;
+    }
+
+    spinWheelButton.addEventListener('click', () => {
+        spinWheel();
+    });
+
+    finalizeOrderButton.addEventListener('click', () => {
+        processOrder(finalOrderTotal);
+        wheelModal.classList.add('hidden');
+    });
+
+    // --- CALENDARIO Y REPORTE DIARIO ---
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    function renderCalendar() {
+        calendarGrid.innerHTML = '';
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        
+        calendarMonthYear.textContent = `${monthNames[month]} ${year}`;
+        
+        const firstDayOfMonth = new Date(year, month, 1);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const startingDayOfWeek = firstDayOfMonth.getDay();
+        
+        // Celdas vacías al inicio del mes
+        for (let i = 0; i < startingDayOfWeek; i++) {
+            const emptyCell = document.createElement('div');
+            calendarGrid.appendChild(emptyCell);
+        }
+        
+        // Celdas de los días del mes
+        for (let i = 1; i <= daysInMonth; i++) {
+            const dayCell = document.createElement('div');
+            dayCell.classList.add('p-2', 'rounded-lg', 'day-cell', 'hover:bg-red-500', 'transition-colors');
+            dayCell.textContent = i;
+            dayCell.dataset.date = new Date(year, month, i).toISOString();
+            
+            const today = new Date();
+            if (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                dayCell.classList.add('today');
+            }
+
+            dayCell.addEventListener('click', () => {
+                document.querySelectorAll('.day-cell').forEach(cell => cell.classList.remove('selected'));
+                dayCell.classList.add('selected');
+                fetchDailySales(dayCell.dataset.date);
+            });
+            
+            calendarGrid.appendChild(dayCell);
+        }
+    }
+
+    prevMonthBtn.addEventListener('click', () => {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+        renderCalendar();
+        dailySalesList.innerHTML = `<p class="text-center text-gray-500">Selecciona un día en el calendario.</p>`;
+        reportTitle.textContent = `Salidas del Día:`;
+    });
+
+    nextMonthBtn.addEventListener('click', () => {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+        renderCalendar();
+        dailySalesList.innerHTML = `<p class="text-center text-gray-500">Selecciona un día en el calendario.</p>`;
+        reportTitle.textContent = `Salidas del Día:`;
+    });
+
+    async function fetchDailySales(dateString) {
+        dailySalesList.innerHTML = `<p class="text-center text-gray-500">Cargando...</p>`;
+        const salesRef = collection(db, 'artifacts', appId, 'public', 'data', 'sales');
+
+        const selectedDate = new Date(dateString);
+        const startOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+        const endOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1);
+
+        const q = query(salesRef, where('timestamp', '>=', startOfDay), where('timestamp', '<', endOfDay));
+        
+        try {
+            const snapshot = await getDocs(q);
+            const sales = [];
+            snapshot.forEach(doc => {
+                sales.push(doc.data());
+            });
+
+            reportTitle.textContent = `Salidas del Día: ${selectedDate.toLocaleDateString()}`;
+            dailySalesList.innerHTML = '';
+            
+            if (sales.length === 0) {
+                dailySalesList.innerHTML = `<p class="text-center text-gray-500">No hay ventas registradas en esta fecha.</p>`;
+            } else {
+                sales.forEach(order => {
+                    const orderItem = document.createElement('li');
+                    const ingredientsList = order.pizzas.map((pizza, index) => {
+                        const ingredients = pizza.ingredients.map(i => i.name).join(', ');
+                        const extras = pizza.extras.length > 0 ? ` + extras: ${pizza.extras.map(e => e.name).join(', ')}` : '';
+                        const drinks = pizza.drinks.length > 0 ? ` + bebidas: ${pizza.drinks.map(d => d.name).join(', ')}` : '';
+                        return `Pizza #${index + 1}: ${ingredients}${extras}${drinks}`;
+                    }).join('<br>');
+                    
+                    orderItem.innerHTML = `<strong>Pedido:</strong><br>${ingredientsList}<br>Total: $${order.total.toFixed(2)}`;
+                    dailySalesList.appendChild(orderItem);
+                });
+            }
+        } catch (e) {
+            console.error("Error al obtener ventas diarias: ", e);
+            dailySalesList.innerHTML = `<p class="text-center text-red-500">Error al cargar los datos.</p>`;
+        }
+    }
+
+    // Navigation event listeners
+    navButtons.builder.addEventListener('click', () => {
+        showPage('builder');
+        updateCurrentPizzaSummary();
+        updateCartDisplay();
+    });
+    navButtons.sales.addEventListener('click', () => showPage('sales'));
+    navButtons.inventory.addEventListener('click', () => showPage('inventory'));
+    backToBuilderFromPaymentButton.addEventListener('click', () => showPage('builder'));
+    backToBuilderFromSalesButton.addEventListener('click', () => showPage('builder'));
+    backToBuilderFromInventoryButton.addEventListener('click', () => showPage('builder'));
+    
+    // Initial UI update
+    updateCurrentPizzaSummary();
+    updateCartDisplay();
+
+    // Start the app on window load
+    window.onload = initializeFirebase;
+</script>
+
+</body>
+</html>
